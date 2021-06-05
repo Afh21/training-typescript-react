@@ -1,11 +1,12 @@
 import React, {
   useCallback,
   useEffect,
-  useReducer,
   useRef,
   useState,
 } from "react";
 import "./App.css";
+
+import { useTodos } from './useTodos'
 
 const Heading = ({ title }: { title: string }) => <h2>{title}...</h2>;
 
@@ -26,21 +27,17 @@ const List: React.FunctionComponent<{
 interface Payload {
   text: string;
 }
-interface Todo {
-  id: number;
-  done: boolean;
-  text: string;
-}
 
-type ActionType =
-  | { type: "ADD"; text: string }
-  | { type: "REMOVE"; id: number };
+const useNumber = (initialValue: number) => useState<number>(initialValue)
+
+type useNumberValue = ReturnType<typeof useNumber>[0]
+type useNumberSetValue = ReturnType<typeof useNumber>[1]
 
 const Incrementer: React.FunctionComponent<{
-  value: number;
-  setValue: React.Dispatch<React.SetStateAction<number>>;
+  value: useNumberValue;
+  setValue: useNumberSetValue
 }> = ({ value, setValue }) => (
-  <Button onClick={() => setValue(value + 1)} title="Add" />
+  <Button onClick={() => setValue(value + 1)} title={`Add - ${value}`} />
 );
 
 const Button: React.FunctionComponent<
@@ -51,11 +48,17 @@ const Button: React.FunctionComponent<
 > = ({ title, children, ...rest }) => <button style={{ fontSize: "xx-large" }} {...rest}>{title ?? children}</button>;
 
 function App() {
+  const { todos, addTodo, removeTodo  } = useTodos([
+    { id: 0, done: false, text: "Hello", }
+  ])
+
+  const [value, setValue] = useState(0);
+  const [payload, setPayload] = useState<Payload | null>(null);
+  const newTodoRef = useRef<HTMLInputElement>(null);
+
   const onListClick = useCallback((item: string) => {
     alert(item);
   }, []);
-
-  const [payload, setPayload] = useState<Payload | null>(null);
 
   useEffect(() => {
     fetch("/db.json")
@@ -63,36 +66,14 @@ function App() {
       .then((data) => setPayload(data));
   }, []);
 
-  const [todos, dispatch] = useReducer((state: Todo[], action: ActionType) => {
-    switch (action.type) {
-      case "ADD":
-        return [
-          ...state,
-          {
-            id: state.length,
-            text: action.text,
-            done: false,
-          },
-        ];
-
-      case "REMOVE":
-        return state.filter(({ id }) => id !== action.id);
-
-      default:
-        throw new Error();
-    }
-  }, []);
-
-  const newTodoRef = useRef<HTMLInputElement>(null);
-
   const onAddTodo = useCallback(() => {
     if (newTodoRef.current) {
-      dispatch({ type: "ADD", text: newTodoRef.current.value });
+      addTodo(newTodoRef.current.value);
       newTodoRef.current.value = "";
     }
-  }, []);
+  }, [addTodo]);
 
-  const [value, setValue] = useState(0);
+  
 
   return (
     <div>
@@ -109,7 +90,7 @@ function App() {
       {todos.map((todo) => (
         <div key={todo.id}>
           {todo.text}
-          <button onClick={() => dispatch({ type: "REMOVE", id: todo.id })}>
+          <button onClick={() => removeTodo(todo.id)}>
             Remove
           </button>
         </div>
